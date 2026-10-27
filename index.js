@@ -3,13 +3,12 @@ const express = require('express')
 const app = express()
 
 app.get('/', (req,res) => res.send('Antilink Bot is Live! 24/7'))
-app.listen(process.env.PORT || 3000, '0.0.0.0', () => console.log("Server Live!"))
+app.listen(process.env.SERVER_PORT || 3000, '0.0.0.0', () => console.log("Server Live!"))
 
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState('./auth')
   const sock = makeWASocket({ auth: state })
   sock.ev.on('creds.update', saveCreds)
-
   sock.ev.on('messages.upsert', async m => {
     const msg = m.messages[0]
     if(!msg.message) return
