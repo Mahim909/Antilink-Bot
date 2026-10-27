@@ -1,17 +1,14 @@
 const { default: makeWASocket, useMultiFileAuthState } = require("@whiskeysockets/baileys")
+const express = require('express')
+const app = express()
+
+app.get('/', (req,res) => res.send('Antilink Bot is Live! 24/7'))
+app.listen(3000, () => console.log("Server Started on 3000"))
 
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState('./auth')
-  const sock = makeWASocket({ auth: state, printQRInTerminal: true })
+  const sock = makeWASocket({ auth: state })
   sock.ev.on('creds.update', saveCreds)
-
-  if(!sock.authState.creds.registered){
-    const phoneNumber = "8801301492171"
-    setTimeout(async () => {
-      let code = await sock.requestPairingCode(phoneNumber)
-      console.log("PAIR CODE FOR 8801301492171:", code)
-    }, 3000)
-  }
 
   sock.ev.on('messages.upsert', async m => {
     const msg = m.messages[0]
@@ -21,7 +18,6 @@ async function startBot() {
     if(isLink){
       if(text.toLowerCase().includes("shoponbd.netlify.app")) return
       await sock.sendMessage(msg.key.remoteJid, { delete: msg.key })
-      console.log("Link Deleted:", text)
     }
   })
 }
