@@ -2,6 +2,7 @@
   "name": "antilink-bot",
   "main": "index.js",
   "dependencies": {
-    "@whiskeysockets/baileys": "latest"
+    "@whiskeysockets/baileys": "latest",
+    "express": "latest"
   }
 }
