@@ -1,0 +1,7 @@
+{
+  "name": "antilink-bot",
+  "main": "index.js",
+  "dependencies": {
+    "@whiskeysockets/baileys": "latest"
+  }
+}
