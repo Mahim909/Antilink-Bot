@@ -2,26 +2,26 @@ const { default: makeWASocket, useMultiFileAuthState } = require("@whiskeysocket
 
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState('./auth')
-  const sock = makeWASocket({ auth: state })
+  const sock = makeWASocket({ auth: state, printQRInTerminal: true })
   sock.ev.on('creds.update', saveCreds)
+
+  if(!sock.authState.creds.registered){
+    const phoneNumber = "8801301492171"
+    setTimeout(async () => {
+      let code = await sock.requestPairingCode(phoneNumber)
+      console.log("PAIR CODE FOR 8801301492171:", code)
+    }, 3000)
+  }
 
   sock.ev.on('messages.upsert', async m => {
     const msg = m.messages[0]
     if(!msg.message) return
-    
     let text = msg.message.conversation || msg.message.extendedTextMessage?.text || ""
-    
-    // লিংক আছে কিনা চেক
-    const isLink = text.includes("http://") || text.includes("https://") || text.includes("chat.whatsapp.com") || text.includes("www.")
-
+    const isLink = text.includes("http://") || text.includes("https://") || text.includes("www.") || text.includes("chat.whatsapp.com")
     if(isLink){
-      // তোমার সাইটটা থাকলে Allow
-      if(text.includes("shoponbd.netlify.app")){
-        return // কিছুই করবে না
-      } else {
-        // বাকি সব লিংক চুপচাপ Delete
-        await sock.sendMessage(msg.key.remoteJid, { delete: msg.key })
-      }
+      if(text.toLowerCase().includes("shoponbd.netlify.app")) return
+      await sock.sendMessage(msg.key.remoteJid, { delete: msg.key })
+      console.log("Link Deleted:", text)
     }
   })
 }
