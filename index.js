@@ -10,20 +10,23 @@ console.log("USING PORT:", PORT)
 
 app.listen(PORT, '0.0.0.0', () => console.log("Server Live on", PORT))
 
+// 🎯 আপনার নির্দিষ্ট গ্রুপ আইডি (Group JID) নিচে বসান
+const TARGET_GROUP_ID = "120363xxxxxxxxx@g.us" // <--- এখানে আপনার গ্রুপের JID বসাবেন
+
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState('./auth')
   const sock = makeWASocket({ auth: state })
   sock.ev.on('creds.update', saveCreds)
 
-  // Group Call Reject & Warning Event Handler
+  // 📞 Call Reject Handler
   sock.ev.on('call', async (calls) => {
     for (let call of calls) {
-      if (!call.isGroup) continue // শুধু গ্রুপ কলের ক্ষেত্রে কাজ করবে
+      // শুধুমাত্র আপনার নির্দিষ্ট গ্রুপে কল আসলেই রিজেক্ট করবে
+      if (call.from !== TARGET_GROUP_ID) continue 
       
       // কল কেটে দেওয়া
       await sock.rejectCall(call.id, call.from)
       
-      // মেম্বারদের জন্য সুন্দর ও স্পষ্ট ওয়ার্নিং মেসেজ
       const warningText = 
 `⚠️ *সতর্কবার্তা: গ্রুপে কল দেওয়া নিষেধ!* ⚠️
 
@@ -35,14 +38,25 @@ async function startBot() {
     }
   })
 
+  // 🔗 Anti-Link Handler
   sock.ev.on('messages.upsert', async m => {
     const msg = m.messages[0]
-    if(!msg.message) return
+    if (!msg.message) return
+    
+    const remoteJid = msg.key.remoteJid
+    
+    // কনসোলে আপনার গ্রুপের JID পাওয়ার জন্য (প্রথমবার বের করতে কাজে লাগবে)
+    console.log("Incoming Message Chat ID:", remoteJid)
+
+    // শুধুমাত্র আপনার নির্দিষ্ট গ্রুপের মেসেজ প্রসেস করবে
+    if (remoteJid !== TARGET_GROUP_ID) return
+
     let text = msg.message.conversation || msg.message.extendedTextMessage?.text || ""
     const isLink = text.includes("http://") || text.includes("https://") || text.includes("www.") || text.includes("chat.whatsapp.com")
-    if(isLink){
-      if(text.toLowerCase().includes("shoponbd.netlify.app")) return
-      await sock.sendMessage(msg.key.remoteJid, { delete: msg.key })
+    
+    if (isLink) {
+      if (text.toLowerCase().includes("shoponbd.netlify.app")) return
+      await sock.sendMessage(remoteJid, { delete: msg.key })
     }
   })
 }
