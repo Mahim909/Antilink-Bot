@@ -10,21 +10,27 @@ console.log("USING PORT:", PORT)
 
 app.listen(PORT, '0.0.0.0', () => console.log("Server Live on", PORT))
 
-// 🎯 আপনার নির্দিষ্ট গ্রুপ আইডি (Group JID) নিচে বসান
-const TARGET_GROUP_ID = "120363xxxxxxxxx@g.us" // <--- এখানে আপনার গ্রুপের JID বসাবেন
+// প্রথমে এটি ফাকা রাখুন, গ্রুপে মেসেজ দিলে লগে JID দেখতে পাবেন
+const TARGET_GROUP_ID = "YOUR_GROUP_JID_HERE" 
 
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState('./auth')
   const sock = makeWASocket({ auth: state })
   sock.ev.on('creds.update', saveCreds)
 
-  // 📞 Call Reject Handler
+  // 📞 Call Reject & JID Finder Handler
   sock.ev.on('call', async (calls) => {
     for (let call of calls) {
-      // শুধুমাত্র আপনার নির্দিষ্ট গ্রুপে কল আসলেই রিজেক্ট করবে
-      if (call.from !== TARGET_GROUP_ID) continue 
+      if (!call.isGroup) continue
       
-      // কল কেটে দেওয়া
+      // লগে গ্রুপের JID প্রিন্ট করে দেখাবে
+      console.log("========================================")
+      console.log("🔥 GROUP CALL RECEIVED FROM JID:", call.from)
+      console.log("========================================")
+
+      // যদি TARGET_GROUP_ID সেট করা থাকে এবং মিলে যায়, তবেই কল কাটবে
+      if (TARGET_GROUP_ID !== "YOUR_GROUP_JID_HERE" && call.from !== TARGET_GROUP_ID) continue
+      
       await sock.rejectCall(call.id, call.from)
       
       const warningText = 
@@ -38,18 +44,21 @@ async function startBot() {
     }
   })
 
-  // 🔗 Anti-Link Handler
+  // 🔗 Anti-Link & JID Finder Handler
   sock.ev.on('messages.upsert', async m => {
     const msg = m.messages[0]
     if (!msg.message) return
     
     const remoteJid = msg.key.remoteJid
     
-    // কনসোলে আপনার গ্রুপের JID পাওয়ার জন্য (প্রথমবার বের করতে কাজে লাগবে)
-    console.log("Incoming Message Chat ID:", remoteJid)
+    // শুধু গ্রুপ মেসেজের ক্ষেত্রে লগে JID প্রিন্ট করবে
+    if (remoteJid.endsWith('@g.us')) {
+      console.log("----------------------------------------")
+      console.log("💬 GROUP MESSAGE FROM JID:", remoteJid)
+      console.log("----------------------------------------")
+    }
 
-    // শুধুমাত্র আপনার নির্দিষ্ট গ্রুপের মেসেজ প্রসেস করবে
-    if (remoteJid !== TARGET_GROUP_ID) return
+    if (TARGET_GROUP_ID !== "YOUR_GROUP_JID_HERE" && remoteJid !== TARGET_GROUP_ID) return
 
     let text = msg.message.conversation || msg.message.extendedTextMessage?.text || ""
     const isLink = text.includes("http://") || text.includes("https://") || text.includes("www.") || text.includes("chat.whatsapp.com")
