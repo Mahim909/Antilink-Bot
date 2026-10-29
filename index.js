@@ -5,12 +5,9 @@ const app = express()
 app.get('/', (req,res) => res.send('Antilink Bot is Live! 24/7'))
 
 const PORT = process.env.SERVER_PORT || process.env.PORT || 3000
-console.log("ENV PORTS:", process.env.SERVER_PORT, process.env.PORT)
-console.log("USING PORT:", PORT)
-
 app.listen(PORT, '0.0.0.0', () => console.log("Server Live on", PORT))
 
-// ✅ আপনার নির্দিষ্ট গ্রুপের JID এখানে বসানো হয়েছে
+// ✅ আপনার গ্রুপের JID
 const TARGET_GROUP_ID = "120363433640959519@g.us" 
 
 async function startBot() {
@@ -18,19 +15,17 @@ async function startBot() {
   const sock = makeWASocket({ auth: state })
   sock.ev.on('creds.update', saveCreds)
 
-  // 📞 Call Reject & Warning Handler
+  // 📞 Call Reject Handler
   sock.ev.on('call', async (calls) => {
     for (let call of calls) {
-      if (!call.isGroup) continue
+      const chatId = call.chat || call.from
+      if (chatId !== TARGET_GROUP_ID) continue
       
-      // শুধুমাত্র আপনার নির্দিষ্ট গ্রুপে কল আসলে কাজ করবে
-      if (call.from !== TARGET_GROUP_ID) continue
-      
-      console.log("========================================")
-      console.log("🔥 GROUP CALL REJECTED IN TARGET GROUP")
-      console.log("========================================")
-      
-      await sock.rejectCall(call.id, call.from)
+      try {
+        await sock.rejectCall(call.id, chatId)
+      } catch (err) {
+        console.log("Call reject failed:", err)
+      }
       
       const warningText = 
 `⚠️ *সতর্কবার্তা: গ্রুপে কল দেওয়া নিষেধ!* ⚠️
@@ -39,26 +34,41 @@ async function startBot() {
 
 ধন্যবাদ! 🙏`;
 
-      await sock.sendMessage(call.from, { text: warningText })
+      await sock.sendMessage(chatId, { text: warningText })
     }
   })
 
-  // 🔗 Anti-Link Handler
+  // 🔗 Strong Anti-Link Handler (Normal & Forwarded Links)
   sock.ev.on('messages.upsert', async m => {
     const msg = m.messages[0]
     if (!msg.message) return
+    if (msg.key.fromMe) return // বটের নিজের মেসেজ ইগ্নোর করবে
     
     const remoteJid = msg.key.remoteJid
-
-    // শুধুমাত্র আপনার নির্দিষ্ট গ্রুপের মেসেজ প্রসেস করবে
     if (remoteJid !== TARGET_GROUP_ID) return
 
-    let text = msg.message.conversation || msg.message.extendedTextMessage?.text || ""
-    const isLink = text.includes("http://") || text.includes("https://") || text.includes("www.") || text.includes("chat.whatsapp.com")
+    // ফরওয়ার্ড করা মেসেজ ও সাধারণ মেসেজের টেক্সট বের করা
+    let text = msg.message.conversation || 
+               msg.message.extendedTextMessage?.text || 
+               msg.message.imageMessage?.caption || 
+               msg.message.videoMessage?.caption || 
+               msg.message.documentMessage?.caption ||
+               msg.message.templateButtonReplyMessage?.selectedId || ""
+
+    // লিঙ্ক খোঁজার জন্য Regex (এটি ফরওয়ার্ড বা যেকোনো ফরম্যাটের লিঙ্ক ধরবে)
+    const linkRegex = /(https?:\/\/[^\s]+)|(www\.[^\s]+)|(chat\.whatsapp\.com\/[^\s]+)/gi
+    const isLink = linkRegex.test(text)
     
     if (isLink) {
+      // আপনার এলাউ করা লিঙ্ক ছাড়া বাকি সব ডিলিট করবে
       if (text.toLowerCase().includes("shoponbd.netlify.app")) return
-      await sock.sendMessage(remoteJid, { delete: msg.key })
+      
+      try {
+        await sock.sendMessage(remoteJid, { delete: msg.key })
+        console.log("🗑️ Link / Forwarded Link deleted successfully!")
+      } catch (error) {
+        console.log("Failed to delete link (Make sure Bot is Admin):", error)
+      }
     }
   })
 }
